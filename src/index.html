@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zeta0 | Color Picker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    
+    .cube-container {
+      perspective: 800px;
+    }
+    
+    .cube {
+      width: 120px;
+      height: 120px;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: rotateCube 8s infinite linear;
+    }
+    
+    .cube-face {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border: 1px solid rgba(0,0,0,0.3);
+      box-shadow: inset 0 0 30px rgba(255,255,255,0.2);
+    }
+    
+    .front { transform: translateZ(60px); }
+    .back { transform: rotateY(180deg) translateZ(60px); }
+    .right { transform: rotateY(90deg) translateZ(60px); }
+    .left { transform: rotateY(-90deg) translateZ(60px); }
+    .top { transform: rotateX(90deg) translateZ(60px); }
+    .bottom { transform: rotateX(-90deg) translateZ(60px); }
+    
+    @keyframes rotateCube {
+      0% { transform: rotateX(-20deg) rotateY(0deg); }
+      100% { transform: rotateX(-20deg) rotateY(360deg); }
+    }
+    
+    .color-wheel {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: conic-gradient(
+        blue, magenta, red, orange, yellow, lime, cyan, blue
+      );
+      position: relative;
+      cursor: crosshair;
+    }
+    
+    .color-wheel::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      border: 3px solid white;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      pointer-events: none;
+    }
+    
+    .color-wheel::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px rgba(255,255,255,0.8), inset 0 0 3px rgba(0,0,0,0.3);
+      pointer-events: none;
+      z-index: 10;
+    }
+    
+    .picker-mode-btn {
+      transition: all 0.2s ease;
+    }
+    
+    .picker-mode-btn.active {
+      background: #4f46e5;
+      color: white;
+    }
+    
+    .warm-light {
+      background: radial-gradient(ellipse at 30% 20%, rgba(255,200,150,0.4) 0%, transparent 50%),
+                  radial-gradient(ellipse at 70% 80%, rgba(255,180,120,0.3) 0%, transparent 40%),
+                  linear-gradient(135deg, #3a3a3a 0%, #2E2E2E 50%, #252525 100%);
+      box-shadow: 
+        inset 0 0 60px rgba(255,180,120,0.15),
+        0 25px 50px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(255,255,255,0.05);
+    }
+    
+    .gradient-border {
+      background: linear-gradient(135deg, #4a4a4a, #2E2E2E, #1a1a1a);
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .gradient-border:hover {
+      background: linear-gradient(225deg, #5a5a5a, #3E3E3E, #2a2a2a);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+    }
+    
+    .color-swatch {
+      transition: all 0.2s ease;
+    }
+    
+    .color-swatch:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    input[type="range"] {
+      -webkit-appearance: none;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #e5e7eb, #9ca3af);
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #1f2937;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    
+    .toast {
+      animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+      to { opacity: 0; }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-white">
+  <div id="app" class="h-full overflow-auto">
+   <!-- Toast Container -->
+   <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+   <div class="max-w-2xl mx-auto p-6">
+    <!-- Title -->
+    <h1 id="app-title" class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-center mb-2 tracking-tight">Zeta0 | Color Picker</h1>
+    <p class="text-center text-gray-500 text-sm mb-8 font-medium">Precision color crafting &amp; AI-powered harmony</p><!-- 3D Cube Display -->
+    <div class="gradient-border rounded-3xl p-8 mb-8">
+     <div class="warm-light rounded-2xl p-10 flex flex-col items-center justify-center gap-4" id="color-display-container">
+      <div class="cube-container" id="cube-display">
+       <div class="cube" id="color-cube">
+        <div class="cube-face front"></div>
+        <div class="cube-face back"></div>
+        <div class="cube-face right"></div>
+        <div class="cube-face left"></div>
+        <div class="cube-face top"></div>
+        <div class="cube-face bottom"></div>
+       </div>
+      </div><button id="toggle-display" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg font-medium transition-all"> Apply to Background </button>
+     </div>
+    </div><!-- AI Color Generator -->
+    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 mb-6 shadow-lg border border-gray-200">
+     <h2 class="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2"><span class="text-xl">✨</span> AI Color Harmonies</h2>
+     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3"><button id="ai-vibrant" class="ai-btn px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+       <div class="text-sm">
+        Vibrant
+       </div>
+       <div class="text-xs opacity-90 mt-1">
+        Bright &amp; Bold
+       </div></button> <button id="ai-pastel" class="ai-btn px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-br from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+       <div class="text-sm">
+        Pastel
+       </div>
+       <div class="text-xs opacity-90 mt-1">
+        Soft &amp; Gentle
+       </div></button> <button id="ai-deep" class="ai-btn px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+       <div class="text-sm">
+        Deep
+       </div>
+       <div class="text-xs opacity-90 mt-1">
+        Rich &amp; Dark
+       </div></button> <button id="ai-neutral" class="ai-btn px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+       <div class="text-sm">
+        Neutral
+       </div>
+       <div class="text-xs opacity-90 mt-1">
+        Muted &amp; Calm
+       </div></button> <button id="ai-complementary" class="ai-btn px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-br from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+       <div class="text-sm">
+        Opposite
+       </div>
+       <div class="text-xs opacity-90 mt-1">
+        Complement
+       </div></button> <button id="ai-saturated" class="ai-btn px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+       <div class="text-sm">
+        Saturated
+       </div>
+       <div class="text-xs opacity-90 mt-1">
+        Intense &amp; Pure
+       </div></button>
+     </div>
+    </div>
+    <div class="bg-gray-50 rounded-2xl p-6 mb-6 shadow-lg">
+     <h2 class="text-lg font-semibold text-gray-700 mb-4">Color Selection</h2><!-- Picker Mode Selector -->
+     <div class="flex gap-2 mb-4">
+      <button id="mode-square" class="picker-mode-btn active flex-1 px-4 py-2 rounded-lg bg-gray-200 font-medium text-gray-700">Square</button> <button id="mode-circle" class="picker-mode-btn flex-1 px-4 py-2 rounded-lg bg-gray-200 font-medium text-gray-700">Circle</button>
+     </div><!-- Square Picker Mode -->
+     <div id="square-picker" class="mb-6">
+      <div class="flex items-center gap-4 mb-4">
+       <label for="color-input" class="text-gray-600 font-medium">Pick Color:</label> <input type="color" id="color-input" value="#6366f1" class="w-16 h-12 rounded-lg cursor-pointer border-2 border-gray-200">
+       <div id="color-preview" class="w-12 h-12 rounded-lg shadow-inner border-2 border-gray-200" style="background: #6366f1"></div>
+      </div>
+     </div><!-- Circle Picker Mode -->
+     <div id="circle-picker" class="mb-6 hidden">
+      <div class="flex justify-center mb-4">
+       <div class="color-wheel" id="color-wheel"></div>
+      </div>
+     </div><!-- HEX Input -->
+     <div class="mb-4">
+      <label for="hex-input" class="block text-gray-600 font-medium mb-2">HEX Value:</label>
+      <div class="flex gap-2">
+       <span class="bg-gray-200 px-3 py-2 rounded-l-lg text-gray-600 font-mono">#</span> <input type="text" id="hex-input" value="6366f1" maxlength="6" class="flex-1 px-4 py-2 border-2 border-gray-200 rounded-r-lg font-mono uppercase focus:border-indigo-400 focus:outline-none">
+      </div>
+     </div><!-- Color/Saturation/Brightness Bars -->
+     <div class="space-y-4 mb-4">
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Hue</label> <span id="hue-value" class="text-gray-500 font-mono">248°</span>
+       </div>
+       <div class="relative h-8 rounded-lg overflow-hidden cursor-pointer" id="hue-bar" style="background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);">
+        <div class="absolute top-0 w-1 h-full bg-white border-2 border-gray-800" id="hue-indicator" style="left: 68.8%;"></div>
+       </div>
+      </div>
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Saturation</label> <span id="sat-value" class="text-gray-500 font-mono">96%</span>
+       </div>
+       <div class="relative h-8 rounded-lg overflow-hidden cursor-pointer" id="sat-bar">
+        <div class="absolute top-0 w-1 h-full bg-white border-2 border-gray-800" id="sat-indicator" style="left: 96%;"></div>
+       </div>
+      </div>
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Brightness</label> <span id="bright-value" class="text-gray-500 font-mono">95%</span>
+       </div>
+       <div class="relative h-8 rounded-lg overflow-hidden cursor-pointer" id="bright-bar" style="background: linear-gradient(to right, #000000, hsl(248, 96%, 50%));">
+        <div class="absolute top-0 w-1 h-full bg-white border-2 border-gray-800" id="bright-indicator" style="left: 95%;"></div>
+       </div>
+      </div>
+     </div><!-- RGBA Sliders -->
+     <div class="space-y-4">
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Red</label> <span id="r-value" class="text-gray-500 font-mono">99</span>
+       </div><input type="range" id="r-slider" min="0" max="255" value="99" class="w-full">
+      </div>
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Green</label> <span id="g-value" class="text-gray-500 font-mono">102</span>
+       </div><input type="range" id="g-slider" min="0" max="255" value="102" class="w-full">
+      </div>
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Blue</label> <span id="b-value" class="text-gray-500 font-mono">241</span>
+       </div><input type="range" id="b-slider" min="0" max="255" value="241" class="w-full">
+      </div>
+      <div>
+       <div class="flex justify-between mb-1">
+        <label class="text-gray-600 font-medium">Transparency</label> <span id="a-value" class="text-gray-500 font-mono">100%</span>
+       </div>
+       <div class="relative h-8 rounded-lg overflow-hidden cursor-pointer" id="transparency-bar" style="background: linear-gradient(to right, transparent, rgb(99, 102, 241)), repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%) 50% / 20px 20px;">
+        <div class="absolute top-0 w-1 h-full bg-white border-2 border-gray-800" id="trans-indicator" style="left: 100%;"></div>
+       </div>
+      </div>
+     </div><!-- RGBA Display -->
+     <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+      <p class="text-gray-600 font-mono text-sm" id="rgba-display">rgba(99, 102, 241, 1)</p>
+     </div>
+    </div><!-- Favorite Colors -->
+    <div class="bg-gray-50 rounded-2xl p-6 mb-6 shadow-lg">
+     <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-700">Favorite Colors</h2><button id="add-favorite" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+       </svg> Add to Favorites </button>
+     </div>
+     <div id="favorites-container" class="flex flex-wrap gap-3 min-h-[48px]">
+      <p class="text-gray-400 text-sm" id="no-favorites">No favorite colors yet</p>
+     </div>
+    </div><!-- Color Palette -->
+    <div class="bg-gray-50 rounded-2xl p-6 mb-6 shadow-lg">
+     <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-700">Color Palette</h2><button id="add-to-palette" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+       </svg> Add to Palette </button>
+     </div>
+     <div id="palette-container" class="flex flex-wrap gap-3 min-h-[48px]">
+      <p class="text-gray-400 text-sm" id="no-palette">Start building your palette</p>
+     </div>
+    </div><!-- Reset Button --> <button id="reset-btn" class="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg">
+     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+     </svg> Reset All Colors </button>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      app_title: 'Advanced Color Picker',
+      primary_color: '#6366f1',
+      background_color: '#ffffff',
+      surface_color: '#f9fafb',
+      text_color: '#1f2937',
+      accent_color: '#10b981'
+    };
+    
+    let currentColor = { r: 99, g: 102, b: 241, a: 1 };
+    let currentHSB = { h: 248, s: 96, b: 95 };
+    let favorites = [];
+    let palette = [];
+    let recordCount = 0;
+    let displayMode = 'cube'; // 'cube' or 'background'
+    
+    // DOM Elements
+    const colorInput = document.getElementById('color-input');
+    const hexInput = document.getElementById('hex-input');
+    const rSlider = document.getElementById('r-slider');
+    const gSlider = document.getElementById('g-slider');
+    const bSlider = document.getElementById('b-slider');
+    const colorPreview = document.getElementById('color-preview');
+    const rgbaDisplay = document.getElementById('rgba-display');
+    const cubeFaces = document.querySelectorAll('.cube-face');
+    const colorWheel = document.getElementById('color-wheel');
+    const hueBar = document.getElementById('hue-bar');
+    const satBar = document.getElementById('sat-bar');
+    const brightBar = document.getElementById('bright-bar');
+    const transparencyBar = document.getElementById('transparency-bar');
+    
+    // Mode switching
+    document.getElementById('mode-square').addEventListener('click', () => {
+      document.getElementById('square-picker').classList.remove('hidden');
+      document.getElementById('circle-picker').classList.add('hidden');
+      document.getElementById('mode-square').classList.add('active');
+      document.getElementById('mode-circle').classList.remove('active');
+    });
+    
+    document.getElementById('mode-circle').addEventListener('click', () => {
+      document.getElementById('square-picker').classList.add('hidden');
+      document.getElementById('circle-picker').classList.remove('hidden');
+      document.getElementById('mode-square').classList.remove('active');
+      document.getElementById('mode-circle').classList.add('active');
+    });
+    
+    function hexToRgb(hex) {
+      const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    }
+    
+    function rgbToHex(r, g, b) {
+      return [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('');
+    }
+    
+    function rgbToHsb(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const delta = max - min;
+      
+      let h = 0;
+      if (delta !== 0) {
+        if (max === r) h = ((g - b) / delta + (g < b ? 6 : 0)) / 6;
+        else if (max === g) h = ((b - r) / delta + 2) / 6;
+        else h = ((r - g) / delta + 4) / 6;
+      }
+      
+      const s = max === 0 ? 0 : delta / max;
+      const v = max;
+      
+      return { h: Math.round(h * 360), s: Math.round(s * 100), b: Math.round(v * 100) };
+    }
+    
+    function hsbToRgb(h, s, b) {
+      h /= 360; s /= 100; b /= 100;
+      
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = b * (1 - s);
+      const q = b * (1 - f * s);
+      const t = b * (1 - (1 - f) * s);
+      
+      let r, g, bl;
+      switch (i % 6) {
+        case 0: r = b; g = t; bl = p; break;
+        case 1: r = q; g = b; bl = p; break;
+        case 2: r = p; g = b; bl = t; break;
+        case 3: r = p; g = q; bl = b; break;
+        case 4: r = t; g = p; bl = b; break;
+        case 5: r = b; g = p; bl = q; break;
+      }
+      
+      return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(bl * 255)
+      };
+    }
+    
+    function updateAllFromRgba() {
+      const hex = rgbToHex(currentColor.r, currentColor.g, currentColor.b);
+      hexInput.value = hex;
+      colorInput.value = '#' + hex;
+      
+      rSlider.value = currentColor.r;
+      gSlider.value = currentColor.g;
+      bSlider.value = currentColor.b;
+      
+      document.getElementById('r-value').textContent = currentColor.r;
+      document.getElementById('g-value').textContent = currentColor.g;
+      document.getElementById('b-value').textContent = currentColor.b;
+      document.getElementById('a-value').textContent = Math.round(currentColor.a * 100) + '%';
+      
+      currentHSB = rgbToHsb(currentColor.r, currentColor.g, currentColor.b);
+      document.getElementById('hue-value').textContent = currentHSB.h + '°';
+      document.getElementById('sat-value').textContent = currentHSB.s + '%';
+      document.getElementById('bright-value').textContent = currentHSB.b + '%';
+      
+      document.getElementById('hue-indicator').style.left = (currentHSB.h / 360 * 100) + '%';
+      document.getElementById('sat-indicator').style.left = currentHSB.s + '%';
+      document.getElementById('bright-indicator').style.left = currentHSB.b + '%';
+      document.getElementById('trans-indicator').style.left = (currentColor.a * 100) + '%';
+      
+      const baseColor = `rgb(${currentColor.r}, ${currentColor.g}, ${currentColor.b})`;
+      satBar.style.background = `linear-gradient(to right, #808080, hsl(${currentHSB.h}, 100%, 50%))`;
+      brightBar.style.background = `linear-gradient(to right, #000000, hsl(${currentHSB.h}, 100%, 50%))`;
+      transparencyBar.style.background = `linear-gradient(to right, transparent, ${baseColor}), repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%) 50% / 20px 20px`;
+      
+      const rgbaStr = `rgba(${currentColor.r}, ${currentColor.g}, ${currentColor.b}, ${currentColor.a})`;
+      rgbaDisplay.textContent = rgbaStr;
+      colorPreview.style.background = rgbaStr;
+      
+      if (displayMode === 'cube') {
+        cubeFaces.forEach(face => {
+          face.style.background = rgbaStr;
+        });
+      } else {
+        document.getElementById('color-display-container').style.background = rgbaStr;
+      }
+    }
+    
+    // Color wheel interaction with drag
+    let wheelDragging = false;
+    
+    function handleWheelInteraction(e) {
+      const rect = colorWheel.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      const angle = Math.atan2(y, x);
+      const hue = ((angle * 180 / Math.PI) + 360) % 360;
+      
+      currentHSB.h = Math.round(hue);
+      const rgb = hsbToRgb(currentHSB.h, currentHSB.s, currentHSB.b);
+      currentColor.r = rgb.r;
+      currentColor.g = rgb.g;
+      currentColor.b = rgb.b;
+      updateAllFromRgba();
+    }
+    
+    colorWheel.addEventListener('mousedown', (e) => {
+      wheelDragging = true;
+      handleWheelInteraction(e);
+    });
+    
+    colorWheel.addEventListener('touchstart', (e) => {
+      wheelDragging = true;
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      handleWheelInteraction(mouseEvent);
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (wheelDragging) {
+        handleWheelInteraction(e);
+      }
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+      if (wheelDragging) {
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        });
+        handleWheelInteraction(mouseEvent);
+      }
+    });
+    
+    document.addEventListener('mouseup', () => {
+      wheelDragging = false;
+    });
+    
+    document.addEventListener('touchend', () => {
+      wheelDragging = false;
+    });
+    
+    // HSB Bar interactions
+    hueBar.addEventListener('click', (e) => {
+      const rect = hueBar.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      currentHSB.h = Math.round(percent * 360);
+      const rgb = hsbToRgb(currentHSB.h, currentHSB.s, currentHSB.b);
+      currentColor.r = rgb.r;
+      currentColor.g = rgb.g;
+      currentColor.b = rgb.b;
+      updateAllFromRgba();
+    });
+    
+    satBar.addEventListener('click', (e) => {
+      const rect = satBar.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      currentHSB.s = Math.round(percent * 100);
+      const rgb = hsbToRgb(currentHSB.h, currentHSB.s, currentHSB.b);
+      currentColor.r = rgb.r;
+      currentColor.g = rgb.g;
+      currentColor.b = rgb.b;
+      updateAllFromRgba();
+    });
+    
+    brightBar.addEventListener('click', (e) => {
+      const rect = brightBar.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      currentHSB.b = Math.round(percent * 100);
+      const rgb = hsbToRgb(currentHSB.h, currentHSB.s, currentHSB.b);
+      currentColor.r = rgb.r;
+      currentColor.g = rgb.g;
+      currentColor.b = rgb.b;
+      updateAllFromRgba();
+    });
+    
+    transparencyBar.addEventListener('click', (e) => {
+      const rect = transparencyBar.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      currentColor.a = Math.max(0, Math.min(1, percent));
+      updateAllFromRgba();
+    });
+    
+    // Toggle display mode
+    document.getElementById('toggle-display').addEventListener('click', () => {
+      const btn = document.getElementById('toggle-display');
+      const container = document.getElementById('color-display-container');
+      const cubeDisplay = document.getElementById('cube-display');
+      
+      if (displayMode === 'cube') {
+        displayMode = 'background';
+        cubeDisplay.style.display = 'none';
+        btn.textContent = 'Show Cube';
+        const rgbaStr = `rgba(${currentColor.r}, ${currentColor.g}, ${currentColor.b}, ${currentColor.a})`;
+        container.style.background = rgbaStr;
+      } else {
+        displayMode = 'cube';
+        cubeDisplay.style.display = 'block';
+        btn.textContent = 'Apply to Background';
+        container.style.background = '';
+        container.className = 'warm-light rounded-2xl p-10 flex flex-col items-center justify-center gap-4';
+      }
+    });
+    
+    colorInput.addEventListener('input', (e) => {
+      const rgb = hexToRgb(e.target.value.slice(1));
+      if (rgb) {
+        currentColor.r = rgb.r;
+        currentColor.g = rgb.g;
+        currentColor.b = rgb.b;
+        updateAllFromRgba();
+      }
+    });
+    
+    hexInput.addEventListener('input', (e) => {
+      const val = e.target.value.replace(/[^a-fA-F0-9]/g, '').slice(0, 6);
+      e.target.value = val;
+      if (val.length === 6) {
+        const rgb = hexToRgb(val);
+        if (rgb) {
+          currentColor.r = rgb.r;
+          currentColor.g = rgb.g;
+          currentColor.b = rgb.b;
+          updateAllFromRgba();
+        }
+      }
+    });
+    
+    [rSlider, gSlider, bSlider].forEach(slider => {
+      slider.addEventListener('input', () => {
+        currentColor.r = parseInt(rSlider.value);
+        currentColor.g = parseInt(gSlider.value);
+        currentColor.b = parseInt(bSlider.value);
+        updateAllFromRgba();
+      });
+    });
+    
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast px-4 py-2 rounded-lg text-white font-medium shadow-lg ${type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-gray-700'}`;
+      toast.textContent = message;
+      document.getElementById('toast-container').appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+    
+    function getCurrentColorString() {
+      return `rgba(${currentColor.r},${currentColor.g},${currentColor.b},${currentColor.a})`;
+    }
+    
+    function renderFavorites() {
+      const container = document.getElementById('favorites-container');
+      const noFavorites = document.getElementById('no-favorites');
+      
+      if (favorites.length === 0) {
+        noFavorites.style.display = 'block';
+        const swatches = container.querySelectorAll('.color-swatch');
+        swatches.forEach(s => s.remove());
+        return;
+      }
+      
+      noFavorites.style.display = 'none';
+      
+      const existingSwatches = new Map();
+      container.querySelectorAll('.color-swatch').forEach(el => {
+        existingSwatches.set(el.dataset.id, el);
+      });
+      
+      favorites.forEach(fav => {
+        if (existingSwatches.has(fav.__backendId)) {
+          existingSwatches.delete(fav.__backendId);
+        } else {
+          const swatch = document.createElement('div');
+          swatch.className = 'color-swatch w-12 h-12 rounded-lg cursor-pointer shadow-md relative group';
+          swatch.style.background = fav.color;
+          swatch.dataset.id = fav.__backendId;
+          swatch.title = fav.color;
+          swatch.innerHTML = `<button class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">×</button>`;
+          
+          swatch.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+              deleteFavorite(fav);
+            } else {
+              applyColor(fav.color);
+            }
+          });
+          
+          container.appendChild(swatch);
+        }
+      });
+      
+      existingSwatches.forEach(el => el.remove());
+    }
+    
+    function renderPalette() {
+      const container = document.getElementById('palette-container');
+      const noPalette = document.getElementById('no-palette');
+      
+      if (palette.length === 0) {
+        noPalette.style.display = 'block';
+        const swatches = container.querySelectorAll('.color-swatch');
+        swatches.forEach(s => s.remove());
+        return;
+      }
+      
+      noPalette.style.display = 'none';
+      
+      const existingSwatches = new Map();
+      container.querySelectorAll('.color-swatch').forEach(el => {
+        existingSwatches.set(el.dataset.id, el);
+      });
+      
+      palette.forEach(pal => {
+        if (existingSwatches.has(pal.__backendId)) {
+          existingSwatches.delete(pal.__backendId);
+        } else {
+          const swatch = document.createElement('div');
+          swatch.className = 'color-swatch w-12 h-12 rounded-lg cursor-pointer shadow-md relative group';
+          swatch.style.background = pal.color;
+          swatch.dataset.id = pal.__backendId;
+          swatch.title = pal.color;
+          swatch.innerHTML = `<button class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">×</button>`;
+          
+          swatch.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+              deletePalette(pal);
+            } else {
+              applyColor(pal.color);
+            }
+          });
+          
+          container.appendChild(swatch);
+        }
+      });
+      
+      existingSwatches.forEach(el => el.remove());
+    }
+    
+    function applyColor(colorStr) {
+      const match = colorStr.match(/rgba?\((\d+),(\d+),(\d+),?([\d.]+)?\)/);
+      if (match) {
+        currentColor.r = parseInt(match[1]);
+        currentColor.g = parseInt(match[2]);
+        currentColor.b = parseInt(match[3]);
+        currentColor.a = match[4] ? parseFloat(match[4]) : 1;
+        updateAllFromRgba();
+      }
+    }
+    
+    async function addFavorite() {
+      if (recordCount >= 999) {
+        showToast('Maximum 999 colors reached. Delete some first.', 'error');
+        return;
+      }
+      
+      const colorStr = getCurrentColorString();
+      const exists = favorites.some(f => f.color === colorStr);
+      if (exists) {
+        showToast('Color already in favorites', 'info');
+        return;
+      }
+      
+      document.getElementById('add-favorite').disabled = true;
+      const result = await window.dataSdk.create({
+        color: colorStr,
+        type: 'favorite',
+        createdAt: new Date().toISOString()
+      });
+      document.getElementById('add-favorite').disabled = false;
+      
+      if (result.isOk) {
+        showToast('Added to favorites!');
+      } else {
+        showToast('Failed to add favorite', 'error');
+      }
+    }
+    
+    async function addToPalette() {
+      if (recordCount >= 999) {
+        showToast('Maximum 999 colors reached. Delete some first.', 'error');
+        return;
+      }
+      
+      const colorStr = getCurrentColorString();
+      
+      document.getElementById('add-to-palette').disabled = true;
+      const result = await window.dataSdk.create({
+        color: colorStr,
+        type: 'palette',
+        createdAt: new Date().toISOString()
+      });
+      document.getElementById('add-to-palette').disabled = false;
+      
+      if (result.isOk) {
+        showToast('Added to palette!');
+      } else {
+        showToast('Failed to add to palette', 'error');
+      }
+    }
+    
+    async function deleteFavorite(fav) {
+      const result = await window.dataSdk.delete(fav);
+      if (result.isOk) {
+        showToast('Removed from favorites');
+      } else {
+        showToast('Failed to remove', 'error');
+      }
+    }
+    
+    async function deletePalette(pal) {
+      const result = await window.dataSdk.delete(pal);
+      if (result.isOk) {
+        showToast('Removed from palette');
+      } else {
+        showToast('Failed to remove', 'error');
+      }
+    }
+    
+    async function resetAll() {
+      const allItems = [...favorites, ...palette];
+      
+      if (allItems.length === 0) {
+        currentColor = { r: 99, g: 102, b: 241, a: 1 };
+        updateAllFromRgba();
+        showToast('Colors reset!');
+        return;
+      }
+      
+      document.getElementById('reset-btn').disabled = true;
+      document.getElementById('reset-btn').textContent = 'Resetting...';
+      
+      for (const item of allItems) {
+        await window.dataSdk.delete(item);
+      }
+      
+      currentColor = { r: 99, g: 102, b: 241, a: 1 };
+      updateAllFromRgba();
+      
+      document.getElementById('reset-btn').disabled = false;
+      document.getElementById('reset-btn').innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Reset All Colors`;
+      showToast('All colors reset!');
+    }
+    
+    // AI Color Generation
+    function generateAIColor(mode) {
+      const baseHue = currentHSB.h;
+      let newHue = baseHue;
+      let newSat = currentHSB.s;
+      let newBright = currentHSB.b;
+      
+      switch(mode) {
+        case 'vibrant':
+          newHue = (baseHue + Math.random() * 60 - 30) % 360;
+          newSat = Math.min(100, currentHSB.s + 25);
+          newBright = Math.min(100, currentHSB.b + 20);
+          break;
+        case 'pastel':
+          newHue = (baseHue + Math.random() * 40 - 20) % 360;
+          newSat = Math.max(20, currentHSB.s - 40);
+          newBright = Math.min(100, currentHSB.b + 30);
+          break;
+        case 'deep':
+          newHue = (baseHue + Math.random() * 50 - 25) % 360;
+          newSat = Math.min(100, currentHSB.s + 15);
+          newBright = Math.max(20, currentHSB.b - 40);
+          break;
+        case 'neutral':
+          newHue = (baseHue + Math.random() * 30 - 15) % 360;
+          newSat = Math.max(10, currentHSB.s - 60);
+          newBright = currentHSB.b;
+          break;
+        case 'complementary':
+          newHue = (baseHue + 180) % 360;
+          newSat = currentHSB.s;
+          newBright = currentHSB.b;
+          break;
+        case 'saturated':
+          newHue = (baseHue + Math.random() * 40 - 20) % 360;
+          newSat = 100;
+          newBright = 85;
+          break;
+      }
+      
+      currentHSB.h = Math.round(newHue);
+      currentHSB.s = Math.round(newSat);
+      currentHSB.b = Math.round(newBright);
+      
+      const rgb = hsbToRgb(currentHSB.h, currentHSB.s, currentHSB.b);
+      currentColor.r = rgb.r;
+      currentColor.g = rgb.g;
+      currentColor.b = rgb.b;
+      updateAllFromRgba();
+      showToast(`Generated ${mode} color!`);
+    }
+    
+    document.getElementById('ai-vibrant').addEventListener('click', () => generateAIColor('vibrant'));
+    document.getElementById('ai-pastel').addEventListener('click', () => generateAIColor('pastel'));
+    document.getElementById('ai-deep').addEventListener('click', () => generateAIColor('deep'));
+    document.getElementById('ai-neutral').addEventListener('click', () => generateAIColor('neutral'));
+    document.getElementById('ai-complementary').addEventListener('click', () => generateAIColor('complementary'));
+    document.getElementById('ai-saturated').addEventListener('click', () => generateAIColor('saturated'));
+    
+    document.getElementById('add-favorite').addEventListener('click', addFavorite);
+    document.getElementById('add-to-palette').addEventListener('click', addToPalette);
+    document.getElementById('reset-btn').addEventListener('click', resetAll);
+    
+    const dataHandler = {
+      onDataChanged(data) {
+        recordCount = data.length;
+        favorites = data.filter(d => d.type === 'favorite');
+        palette = data.filter(d => d.type === 'palette');
+        renderFavorites();
+        renderPalette();
+      }
+    };
+    
+    async function onConfigChange(config) {
+      document.getElementById('app-title').textContent = config.app_title || defaultConfig.app_title;
+    }
+    
+    window.elementSdk.init({
+      defaultConfig,
+      onConfigChange,
+      mapToCapabilities: (config) => ({
+        recolorables: [],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      }),
+      mapToEditPanelValues: (config) => new Map([
+        ['app_title', config.app_title || defaultConfig.app_title]
+      ])
+    });
+    
+    window.dataSdk.init(dataHandler);
+    
+    updateAllFromRgba();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d52760eb4ff9a50',t:'MTc3MjMwODMzNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
